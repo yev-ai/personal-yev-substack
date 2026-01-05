@@ -42,5 +42,5 @@ irm https://get.activated.win | iex
 
 Or it didn't happen, of course. The GPU is secured to the case with screws in 3 additional places to keep it safe during air and ground transport.
 
-![00_pc_build_final](./../img/00_pc_build_final.jpg)
-![00_pc_build_case](./../img/00_pc_build_case.jpg)
+![000_pc_build_final](./../img/000_pc_build_final.jpg)
+![000_pc_build_case](./../img/000_pc_build_case.jpg)
