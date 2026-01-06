@@ -1,3 +1,5 @@
+# Host Hardware
+
 I'm an experienced PC modder/OCer and like to rebuild my work PC every 3-5 years. My last build was the [fastest 3960X in the world](https://www.reddit.com/r/overclocking/comments/o1bg82/3960x_19745_tse/) at [19,745 TSE](https://www.3dmark.com/spy/20886143). Both 3090s were shunted, delidded, and EVC2-modded. The goal for this build was **portability and ML performance** but seeing the 5090 clock in at 25,506 Graphics Score on TSE was extremely disappointing since my twin 3090s scored 23,012 five years ago.
 
 So I delidded the GPU, replaced thermals, shunted the VRMs, rebuilt the power delivery circuitry to safely draw up to 850W (the 12VHPWR connector is a travesty), and flashed a 1000W BIOS ...again ¯\\_(ツ)_/¯. A few CNC modifications were made to the case so it could maintain proper temps during the 8-hour stability test ran at 78f ambient - you can find pictures of that at the bottom.
