@@ -76,8 +76,8 @@ git config --global alias.root "rev-parse --show-toplevel"
 git root
 
 # Mount ZSH and PL10K configs - this also serves to confirm our paths.
-chmod +x "$(git root)/files/001_wsl_setup/setup.sh"
-"$(git root)/files/001_wsl_setup/setup.sh"
+chmod +x "$(git root)/docs/001_wsl_setup/setup.sh"
+"$(git root)/docs/001_wsl_setup/setup.sh"
 
 # Export the Git Root directory into our pre-zsh hook. This is where you checked out the repo.
 echo "export GIT_ROOT=\"$(dirname "$(git root)")\"" >> "$HOME/.zshrc-pre.sh"
@@ -134,6 +134,6 @@ htop
 
 You should see output similar to this:
 
-![001_wsl_setup_htop](./../img/001_wsl_setup_htop.png)
+![001_wsl_setup_htop](./001_wsl_setup/htop.png)
 
 Only about 50% of our 96GB RAM is available to WSL under "Mem" along with a 12GB swap file. This will become important later.
