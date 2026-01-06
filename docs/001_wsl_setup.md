@@ -120,3 +120,19 @@ Tue Jan  6 11:22:22 2026
 ```
 
 As you can see, the windows host OS reserves around ~2GB VRAM. This guide will gracefully work around lack of exclusive GPU control which we normally have in cloud nodes.
+
+# Confirm Memory Allocation
+
+```bash
+# Install a basic resource monitor for WSL
+brew install htop
+
+# Run it
+htop
+```
+
+You should see output similar to this:
+
+![001_wsl_setup_htop](./../img/001_wsl_setup_htop.png)
+
+As you can see, only about 50% of our 96GB RAM is available to WSL under "Mem" along with a 12GB swap file. This will become important later.
