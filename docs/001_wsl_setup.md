@@ -9,7 +9,6 @@ We're setting up a linux-based environment for this guide because most modern cl
 ```powershell
 # PowerShell Admin
 wsl --install
-# Restart your PC and set up a default username ("dev" recommended).
 ```
 2. Install Ubuntu LTS ("Long Term Support" - use this in prod unless building from [Alpine](https://www.alpinelinux.org/)).
 ```powershell
