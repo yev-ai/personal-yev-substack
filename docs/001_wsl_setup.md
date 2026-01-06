@@ -79,7 +79,7 @@ chmod +x "$(git root)/files/001_wsl_setup/setup.sh"
 "$(git root)/files/001_wsl_setup/setup.sh"
 
 # Export the Git Root directory into our pre-zsh hook. This is where you checked out the repo.
-echo "export GIT_ROOT=\"$(dirname "$(git rev-parse --show-toplevel)")\"" >> ~/.zshrc-pre.sh
+echo "export GIT_ROOT=\"$(dirname "$(git root)")\"" >> ~/.zshrc-pre.sh
 
 # Source the new ZSHRC
 source ~/.zshrc
@@ -119,7 +119,7 @@ Tue Jan  6 11:22:22 2026
 +-----------------------------------------------------------------------------------------+
 ```
 
-As you can see, the windows host OS reserves around ~2GB VRAM. This guide will gracefully work around lack of exclusive GPU control which we normally have in cloud nodes.
+The windows host OS reserves around ~2GB VRAM. This guide will gracefully work around lack of exclusive GPU control which we normally have in cloud nodes.
 
 # Confirm Memory Allocation
 
@@ -135,4 +135,4 @@ You should see output similar to this:
 
 ![001_wsl_setup_htop](./../img/001_wsl_setup_htop.png)
 
-As you can see, only about 50% of our 96GB RAM is available to WSL under "Mem" along with a 12GB swap file. This will become important later.
+Only about 50% of our 96GB RAM is available to WSL under "Mem" along with a 12GB swap file. This will become important later.
