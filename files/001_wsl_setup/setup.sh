@@ -17,7 +17,7 @@ backup_existing() {
       cp "$target" "$backup_name"
       echo "✅ Backed up $file to $backup_name"
     else
-      echo "⚠️  Skipped $file (not found in ~)"
+      echo "⚠️ Skipped $file (not found in ~)"
     fi
   done
 }
@@ -29,7 +29,7 @@ install_files() {
 
     if [[ -f "$source_file" ]]; then
       cp "$source_file" "$target"
-      echo "🚀 Installed $file to ~/"
+      echo "✅ Installed $file to ~/"
     else
       echo "❌ Error: Could not find $file in script directory ($script_dir)"
     fi
