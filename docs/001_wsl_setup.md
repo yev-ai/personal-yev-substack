@@ -2,7 +2,7 @@ Chapter 2 of our "development from scratch" guide. See [Chapter 1](./000_pc_buil
 
 # Windows Subsystem for Linux (WSL)
 
-We're setting up a linux-based environment for this guide because most modern cloud deployment targets are ARM or linux-based x64. WSL uses GPU Paravirtualization (GPU-PV) whereas your production B200 and/or [NVL72](https://www.nvidia.com/en-us/data-center/gb200-nvl72/) nodes use PCIe passthrough (DDA) via AWS [Nitro](https://aws.amazon.com/ec2/nitro/), GCP [Titan](https://docs.cloud.google.com/docs/security/titan-hardware-chip), or Azure [Boost](https://learn.microsoft.com/en-us/azure/azure-boost/overview). GPU-PV incurs a relative performance penalty but, for the purposes of our guide, it is negligible.
+We're setting up a linux-based environment for this guide because most modern cloud deployment targets are ARM or linux-based x64. WSL uses [GPU Paravirtualization (GPU-PV)](https://www.scalecomputing.com/resources/virtual-gpu-vs-gpu-passthrough) whereas your production B200 and/or [NVL72](https://www.nvidia.com/en-us/data-center/gb200-nvl72/) nodes use PCIe passthrough (DDA) via AWS [Nitro](https://aws.amazon.com/ec2/nitro/), GCP [Titan](https://docs.cloud.google.com/docs/security/titan-hardware-chip), or Azure [Boost](https://learn.microsoft.com/en-us/azure/azure-boost/overview). GPU-PV incurs a relative performance penalty but, for the purposes of our guide, it is negligible.
 
 # Host Setup
 1. Enable WSL on Windows
