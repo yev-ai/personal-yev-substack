@@ -81,10 +81,10 @@ chmod +x "$(git root)/files/001_wsl_setup/setup.sh"
 "$(git root)/files/001_wsl_setup/setup.sh"
 
 # Export the Git Root directory into our pre-zsh hook. This is where you checked out the repo.
-echo "export GIT_ROOT=\"$(dirname "$(git root)")\"" >> ~/.zshrc-pre.sh
+echo "export GIT_ROOT=\"$(dirname "$(git root)")\"" >> "$HOME/.zshrc-pre.sh"
 
 # Source the new ZSHRC
-source ~/.zshrc
+source "$HOME/.zshrc"
 
 # Make sure our GIT_ROOT is set correctly - we'll use this heavily in later sections:
 echo "$GIT_ROOT"
