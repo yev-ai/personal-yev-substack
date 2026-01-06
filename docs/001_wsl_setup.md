@@ -58,6 +58,9 @@ mkdir "$HOME/Git" && cd $_
 # Log into GitHub ("open" works thanks to wslu). Don't use tokens unless you have no choice.
 gh auth login
 
+# Confirm you're logged in
+gh auth status
+
 # Set the global git config - doing so from the active GH CLI is best practice.
 # Note: this is especially useful when automating in CI with service accounts.
 git config --global user.name "$(gh api user --jq '.name')"
