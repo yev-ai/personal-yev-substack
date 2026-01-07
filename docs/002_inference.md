@@ -96,12 +96,13 @@ chmod +x "$(git root)/docs/002_inference/run-model.sh"
 
 # 4. Chat with Model
 
-With the vLLM container running, open up a new tab and run `nvitop` in it. Then spin up the UI and head over to http://localhost:1338
-
 ```bash
+# Start the UI server.
 chmod +x "$(git root)/docs/002_inference/run-ui.sh"
 "$(git root)/docs/002_inference/run-ui.sh"
 ```
+
+Head over to http://localhost:1338
 
 First, you'll have to "warm up" vLLM with a simple hello world prompt. This will take a while, after which you can expect 60-90TPS. We'll optimize this later. When you first open localhost in your browser, you may see a few errors. Click on "Check again" and/or reload the page!
 
