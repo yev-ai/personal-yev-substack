@@ -1,16 +1,15 @@
-# Running Our First Model
+Chapter 3 of our "development from scratch" guide. See See [Chapter 2](./001_wsl_setup.md.md) for pre-requisities.
 
-This part contains:
+# Table of Contents
 
-1. Proper WSL Docker setup
-2. Downloading our first model
-3. Setting up vLLM made easy
-4. Running our first model
-5. Interacting with it via the UI
+For this, we'll run a 30B Qwen3 model at 60-90TPS (we'll optimize this later) with a focus on coding assistance.
 
-The Open WebUI container is preloaded with a custom system prompt and model-specific settings.
+1. WSL Docker Setup
+2. Download A 30B Model
+3. Run it with vLLM *(Some optimizations included to make it palatable)*
+4. Chat with Model *(The UI is preloaded with model-specific settings)*
 
-# Docker Installation
+# 1. WSL Docker Setup
 
 We should **install Docker Engine inside WSL** so that `nvidia-container-toolkit` can interface directly with the WSL Linux kernel via [dxgkrnl](https://learn.microsoft.com/en-us/windows-hardware/drivers/display/directx-graphics-kernel-subsystem). This lets WSL  sub in for a native host OS by directly managing the GPU resources.
 
@@ -44,7 +43,7 @@ sudo nvidia-ctk runtime configure --runtime=docker
 sudo systemctl restart docker
 ```
 
-# HuggingFace!
+# 2. Download A 30B Model
 
 The casual favorite. Make an account on [HuggingFace](https://huggingface.co/) and [get an access token here](https://huggingface.co/settings/tokens).
 
@@ -71,15 +70,13 @@ echo 'export HF_HOME="$HOME/HF_Models"' >> "$HOME/.zshrc-pre.sh" && source "$HOM
 echo $HF_HOME
 ```
 
-# Download a Model
-
 [Qwen3-30B-A3B-NVFP4](https://huggingface.co/nvidia/Qwen3-30B-A3B-NVFP4) is a solid Blackwell "Hello World" model. While it's *technically* a 30B model, it uses only ~3.3B active parameters per token, giving it decent throughput on a 5090. It's not particularly great (even compared to other single-GPU 5090 options) at anything, but it is one of the rare cases where **[NVFP4 quantization resulted in higher scores](https://huggingface.co/nvidia/Qwen3-30B-A3B-NVFP4)** on some of the benchmarks we care about.
 
 ```bash
 hf download nvidia/Qwen3-30B-A3B-NVFP4
 ```
 
-# Run it with vLLM
+# 3. Run it with vLLM
 
 Blackwell GPUs support [NVFP4](https://developer.nvidia.com/blog/introducing-nvfp4-for-efficient-and-accurate-low-precision-inference/) (1 sign, 2 exponent, and 1 mantissa bit) models and we're going to be heavily abusing this. This groups weights into blocks of 16, each of which shares a high-precision 8-bit (E4M3) scale factor and allows the 4-bit quantized coefficients to handle the finer details.
 
@@ -88,16 +85,30 @@ They also come with the [2nd Gen Transformer Engine](https://github.com/NVIDIA/T
 [vLLM](https://github.com/vllm-project/vllm) recently added experimental support for NVFP4 so we don't have to build [TensorRT-LLM](https://github.com/NVIDIA/TensorRT-LLM) from source and [compile our models for TRT-LLM](https://github.com/NVIDIA/Model-Optimizer) to get reasonable [TTFT (time to first token) and TPS (tokens per second)](https://docs.nvidia.com/nim/benchmarking/llm/latest/metrics.html). vLLM also comes with a number of optimizations like [PagedAttention](https://arxiv.org/abs/2309.06180) for the [KV cache](https://huggingface.co/blog/not-lain/kv-caching).
 
 ```bash
-# Build the vLLM container
+# Build the vLLM container.
 chmod +x "$(git root)/docs/002_inference/build.sh"
 "$(git root)/docs/002_inference/build.sh"
 
-# Start the vLLM container
+# Start the vLLM container. This takes A WHILE (8-10 minutes) for the precompute. Please be patient.
 chmod +x "$(git root)/docs/002_inference/run-model.sh"
 "$(git root)/docs/002_inference/run-model.sh"
 ```
 
-# Resource Monitoring
+# 4. Chat with Model
+
+With the vLLM container running, open up a new tab and run `nvitop` in it. Then spin up the UI and head over to http://localhost:1338
+
+```bash
+chmod +x "$(git root)/docs/002_inference/run-ui.sh"
+"$(git root)/docs/002_inference/run-ui.sh"
+```
+
+First, you'll have to "warm up" vLLM with a simple hello world prompt. This will take a while, after which you can expect 60-90TPS. We'll optimize this later. When you first open localhost in your browser, you may see a few errors. Click on "Check again" and/or reload the page!
+
+![002_inference](./002_inference/run_example.png)
+
+
+# Bonus: Resource Monitoring
 
 ```bash
 # Install pipx
@@ -112,16 +123,3 @@ echo 'export PATH="$HOME/.local/bin:$PATH"' >> "$HOME/.zshrc-pre.sh" && source "
 # Run nvitop
 nvitop
 ```
-
-# You're ready to roll!
-
-With the vLLM container running, open up a new tab and run `nvitop` in it. Then spin up the UI and head over to http://localhost:1338
-
-```bash
-chmod +x "$(git root)/docs/002_inference/run-ui.sh"
-"$(git root)/docs/002_inference/run-ui.sh"
-```
-
-First, you'll have to "warm up" vLLM with a simple hello world prompt. This will take a while, after which you can expect 60-90TPS. We'll optimize this later. When you first open localhost in your browser, you may see a few errors. Click on "Check again" and/or reload the page!
-
-![002_inference](./002_inference/run_example.png)
