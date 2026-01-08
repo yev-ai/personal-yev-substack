@@ -71,3 +71,5 @@ chmod +x "$(git root)/docs/004_basic_dev_env/run-embedding-optimizer.sh"
 * You can also use it to replicate the above results. Details are in `/benchmarks`.
 
 TODOs include not having multiple fatal edge cases and a trainwrecked mix of shell, python, and Dockerfiles.
+
+For further insanity -> [https://www.yevelations.com/](https://www.yevelations.com/)
