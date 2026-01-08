@@ -1,6 +1,6 @@
 # Embeddings ...apparently?
 
-This setup is a dumbed down version one of my startup's local-dev codebase indexing pipeline components (aka ingestion). It sits on top of [Jina AI's](https://jina.ai/) capable [jina-code-embeddings-0.5b](https://huggingface.co/jinaai/jina-code-embeddings-0.5b) ([Link to ArXiv](https://arxiv.org/pdf/2508.21290)), which is based on Qwen2.5-Coder-0.5B. I benchmarked it since I'm sharing out my local development setup on Substack and wanted to objectively make sure that I'm not making my readers set up garbage. 
+This setup is a dumbed down version one of my startup's local-dev codebase indexing pipeline components (aka ingestion). It sits on top of [Jina AI's](https://jina.ai/) already VERY capable [jina-code-embeddings-0.5b](https://huggingface.co/jinaai/jina-code-embeddings-0.5b) ([Link to ArXiv](https://arxiv.org/pdf/2508.21290)), which is based on Qwen2.5-Coder-0.5B. I benchmarked it since I'm sharing out my local development setup on Substack and wanted to objectively make sure that I'm not making my readers set up garbage. 
 
 **These results were not what I expected** and I'm *extremely* skeptical about them until multiple 3rd party reviews.
 
