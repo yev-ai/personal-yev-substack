@@ -1,0 +1,172 @@
+FROM nvidia/cuda:12.9.0-devel-ubuntu22.04 AS base-builder
+
+ENV SCCACHE=0.10.0
+ENV RUSTC_WRAPPER=/usr/local/bin/sccache
+ENV PATH="/root/.cargo/bin:${PATH}"
+ENV CARGO_CHEF=0.1.71
+
+ARG TEI_COMMIT=0ec2ba5073de67c016cf77b8942ddb15ed3b0397
+
+RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+    curl \
+    libssl-dev \
+    pkg-config \
+    git \
+    patch \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN curl -fsSL https://github.com/mozilla/sccache/releases/download/v$SCCACHE/sccache-v$SCCACHE-x86_64-unknown-linux-musl.tar.gz | tar -xzv --strip-components=1 -C /usr/local/bin sccache-v$SCCACHE-x86_64-unknown-linux-musl/sccache && \
+    chmod +x /usr/local/bin/sccache
+
+RUN curl https://sh.rustup.rs -sSf | bash -s -- -y
+RUN cargo install cargo-chef --version $CARGO_CHEF --locked
+
+WORKDIR /usr/src
+RUN git clone https://github.com/huggingface/text-embeddings-inference . && \
+    git checkout $TEI_COMMIT
+
+
+RUN cat <<'PATCH' | patch -p1
+diff --git a/backends/candle/src/compute_cap.rs b/backends/candle/src/compute_cap.rs
+index ac79fcf..56978f5 100644
+--- a/backends/candle/src/compute_cap.rs
++++ b/backends/candle/src/compute_cap.rs
+@@ -30,6 +30,7 @@ fn compute_cap_matching(runtime_compute_cap: usize, compile_compute_cap: usize)
+         (86..=89, 80..=86) => true,
+         (89, 89) => true,
+         (90, 90) => true,
++        (120, 120) => true,
+         (_, _) => false,
+     }
+ }
+@@ -54,6 +55,7 @@ mod tests {
+         assert!(compute_cap_matching(86, 86));
+         assert!(compute_cap_matching(89, 89));
+         assert!(compute_cap_matching(90, 90));
++        assert!(compute_cap_matching(120, 120));
+ 
+         assert!(compute_cap_matching(86, 80));
+         assert!(compute_cap_matching(89, 80));
+diff --git a/backends/candle/src/flash_attn.rs b/backends/candle/src/flash_attn.rs
+index 8dbe58c..f1b69c7 100644
+--- a/backends/candle/src/flash_attn.rs
++++ b/backends/candle/src/flash_attn.rs
+@@ -61,7 +61,7 @@ pub(crate) fn flash_attn_varlen(
+         }
+         #[cfg(not(feature = "flash-attn-v1"))]
+         candle::bail!("Flash attention v1 is not installed. Use `flash-attn-v1` feature.")
+-    } else if (80..90).contains(&runtime_compute_cap) || runtime_compute_cap == 90 {
++    } else if (80..90).contains(&runtime_compute_cap) || runtime_compute_cap == 90 || runtime_compute_cap == 120 {
+         #[cfg(feature = "flash-attn")]
+         {
+             use candle_flash_attn::{flash_attn_varlen_alibi_windowed, flash_attn_varlen_windowed};
+PATCH
+
+FROM base-builder AS planner
+
+WORKDIR /usr/src
+
+RUN cargo chef prepare  --recipe-path recipe.json
+
+FROM base-builder AS builder
+
+ARG CUDA_COMPUTE_CAP=120
+ARG GIT_SHA
+ARG DOCKER_LABEL
+ARG ACTIONS_RESULTS_URL=""
+ARG ACTIONS_RUNTIME_TOKEN=""
+
+ARG RAYON_NUM_THREADS
+ARG CARGO_BUILD_JOBS
+ARG CARGO_BUILD_INCREMENTAL
+
+ARG SCCACHE_GHA_ENABLED
+
+WORKDIR /usr/src
+
+RUN if [ ${CUDA_COMPUTE_CAP} -ge 75 -a ${CUDA_COMPUTE_CAP} -lt 80 ]; \
+    then  \
+        nvprune --generate-code code=sm_${CUDA_COMPUTE_CAP} /usr/local/cuda/lib64/libcublas_static.a -o /usr/local/cuda/lib64/libcublas_static.a; \
+    elif [ ${CUDA_COMPUTE_CAP} -ge 80 -a ${CUDA_COMPUTE_CAP} -lt 90 ]; \
+    then  \
+        nvprune --generate-code code=sm_80 --generate-code code=sm_${CUDA_COMPUTE_CAP} /usr/local/cuda/lib64/libcublas_static.a -o /usr/local/cuda/lib64/libcublas_static.a; \
+    elif [ ${CUDA_COMPUTE_CAP} -eq 90 ]; \
+    then  \
+        nvprune --generate-code code=sm_90 /usr/local/cuda/lib64/libcublas_static.a -o /usr/local/cuda/lib64/libcublas_static.a; \
+    elif [ ${CUDA_COMPUTE_CAP} -eq 120 ]; \
+    then  \
+        nvprune --generate-code code=sm_120 /usr/local/cuda/lib64/libcublas_static.a -o /usr/local/cuda/lib64/libcublas_static.a; \
+    else  \
+        echo "cuda compute cap ${CUDA_COMPUTE_CAP} is not supported"; exit 1; \
+    fi;
+
+COPY --from=planner /usr/src/recipe.json recipe.json
+
+RUN if [ ${CUDA_COMPUTE_CAP} -ge 75 -a ${CUDA_COMPUTE_CAP} -lt 80 ]; \
+    then \
+        cargo chef cook --release --features candle-cuda-turing --features static-linking --no-default-features --recipe-path recipe.json && sccache -s; \
+    else \
+        cargo chef cook --release --features candle-cuda --features static-linking --no-default-features --recipe-path recipe.json && sccache -s; \
+    fi;
+
+COPY --from=base-builder /usr/src/backends backends
+COPY --from=base-builder /usr/src/core core
+COPY --from=base-builder /usr/src/router router
+COPY --from=base-builder /usr/src/Cargo.toml ./
+COPY --from=base-builder /usr/src/Cargo.lock ./
+
+FROM builder AS http-builder
+
+RUN if [ ${CUDA_COMPUTE_CAP} -ge 75 -a ${CUDA_COMPUTE_CAP} -lt 80 ]; \
+    then \
+        cargo build --release --bin text-embeddings-router -F candle-cuda-turing -F static-linking -F http --no-default-features && sccache -s; \
+    else \
+        cargo build --release --bin text-embeddings-router -F candle-cuda -F static-linking -F http --no-default-features && sccache -s; \
+    fi;
+
+FROM builder AS grpc-builder
+
+RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+    unzip \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN PROTOC_ZIP=protoc-21.12-linux-x86_64.zip && \
+    curl -OL https://github.com/protocolbuffers/protobuf/releases/download/v21.12/$PROTOC_ZIP && \
+    unzip -o $PROTOC_ZIP -d /usr/local bin/protoc && \
+    unzip -o $PROTOC_ZIP -d /usr/local 'include/*' && \
+    rm -f $PROTOC_ZIP
+
+RUN if [ ${CUDA_COMPUTE_CAP} -ge 75 -a ${CUDA_COMPUTE_CAP} -lt 80 ]; \
+    then \
+        cargo build --release --bin text-embeddings-router -F candle-cuda-turing -F static-linking -F grpc --no-default-features && sccache -s; \
+    else \
+        cargo build --release --bin text-embeddings-router -F candle-cuda -F static-linking -F grpc --no-default-features && sccache -s; \
+    fi;
+
+FROM nvidia/cuda:12.9.0-base-ubuntu22.04 AS base
+
+ARG DEFAULT_USE_FLASH_ATTENTION=True
+
+ENV HUGGINGFACE_HUB_CACHE=/data \
+    PORT=80 \
+    USE_FLASH_ATTENTION=$DEFAULT_USE_FLASH_ATTENTION
+
+RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+    ca-certificates \
+    libssl-dev \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+FROM base AS grpc
+
+COPY --from=grpc-builder /usr/src/target/release/text-embeddings-router /usr/local/bin/text-embeddings-router
+
+ENTRYPOINT ["text-embeddings-router"]
+CMD ["--json-output"]
+
+FROM base
+
+COPY --from=http-builder /usr/src/target/release/text-embeddings-router /usr/local/bin/text-embeddings-router
+
+ENTRYPOINT ["text-embeddings-router"]
+CMD ["--json-output"]

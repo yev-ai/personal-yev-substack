@@ -1,0 +1,89 @@
+FROM python:3.12-slim
+
+# Copyright Yevai Inc 2026. Licensed under BSL 1.1.
+# Free for personal and acedemic use (See LICENSE for details).
+# Better safe than sorry. Also, we're hiring: https://www.yev.ai/
+
+RUN pip install --no-cache-dir fastapi uvicorn httpx pydantic
+
+RUN mkdir -p /app && cat <<'PYEOF' > /app/optimizer.py
+import uvicorn
+from fastapi import FastAPI, HTTPException
+from pydantic import BaseModel
+from typing import List, Union, Optional
+from contextlib import asynccontextmanager
+import httpx
+import logging
+import sys
+import os
+
+def require_env(name: str) -> str:
+    value = os.environ.get(name)
+    if not value:
+        print(f"Required ENV var '{name}' not set", file=sys.stderr)
+        sys.exit(1)
+    return value
+
+TEI_BASE_URL = require_env("TEI_BASE_URL")
+PORT = int(require_env("PORT"))
+
+# Default: "Find the most relevant code snippet given the following query:\n"
+QUERY_PREFIX = "Find the code snippet most similar to the query of:\n"
+PASSAGE_PREFIX = "Candidate code snippet:\n" # Same as the model default.
+
+logging.basicConfig(level=logging.WARNING)
+logger = logging.getLogger("JinaProxy")
+http_client = None
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    global http_client
+    limits = httpx.Limits(max_keepalive_connections=None, max_connections=None)
+    http_client = httpx.AsyncClient(base_url=TEI_BASE_URL, timeout=60.0, limits=limits)
+    print(f"Jina optimizer connected to TEI at {TEI_BASE_URL}")
+    print(f"Optimizer ready on port {PORT}")
+    yield
+    await http_client.aclose()
+
+app = FastAPI(lifespan=lifespan)
+
+class EmbeddingRequest(BaseModel):
+    input: list[str] | str
+    model: str | None = "default"
+
+def is_query(text: str) -> bool:
+    if len(text) > 300:
+        return False
+    if text.count("\n") > 2:
+        return False
+    text_lower = text.lower()
+    if "?" in text or "how " in text_lower or "find " in text_lower or "what " in text_lower:
+        return True
+    return True
+
+@app.post("/v1/embeddings")
+async def create_embeddings(request: EmbeddingRequest):
+    texts = [request.input] if isinstance(request.input, str) else request.input
+    processed_inputs = [
+        (QUERY_PREFIX + t) if is_query(t) else (PASSAGE_PREFIX + t)
+        for t in texts
+    ]
+    try:
+        response = await http_client.post("/embed", json={"inputs": processed_inputs, "truncate": True})
+        response.raise_for_status()
+        embeddings = response.json()
+    except Exception as e:
+        logger.error(f"TEI Connection Failed: {e}")
+        raise HTTPException(status_code=500, detail="Embedding Engine Unavailable")
+
+    return {
+        "object": "list",
+        "data": [{"object": "embedding", "embedding": vec, "index": i} for i, vec in enumerate(embeddings)],
+        "model": "jina-code-embeddings"
+    }
+
+if __name__ == "__main__":
+    uvicorn.run(app, host="0.0.0.0", port=PORT, log_level="warning")
+PYEOF
+
+CMD ["python", "-u", "/app/optimizer.py"]

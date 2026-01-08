@@ -1,0 +1,7 @@
+FROM python:3.12-slim
+
+RUN mkdir -p /app/results
+RUN pip install --no-cache-dir coir-eval httpx numpy
+COPY coir-benchmark.py /app/runner.py
+
+CMD ["python", "/app/runner.py"]
