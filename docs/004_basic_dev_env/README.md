@@ -4,9 +4,7 @@ This setup is a dumbed down version one of my startup's local-dev codebase index
 
 **These results were not what I expected** and I'm *extremely* skeptical about them until multiple 3rd party reviews. We're also comparing an [augmented model](./docker/Dockerfile.optimizer) against bare models, which is not apples to apples. 
 
-So far, a buddy of mine at Cal tech ran it within 0.01% margin but n=1 is unhelpful. His main feedback was that the `CodeFeedBack-MT` scores are either invalid or brilliant due to the optimizer ...depending on how you want to look at it. We'd still have a (70.86%) average if we set CodeFeedback-MT score to 0.4.
-
-Please help pull down and verify or refute these results. Methodology and steps to reproduce below.
+So far, a buddy of mine at Cal tech ran it within 0.01% margin but n=1 is unhelpful. His main feedback was that the `CodeFeedBack-MT` scores are either invalid or brilliant due to the optimizer ...depending on how you want to look at it. We'd still have a (70.86%) average if we set CodeFeedback-MT score to 0.4. Please help pull down and verify or refute these results. Methodology and steps to reproduce below.
 
 For reference, COIR [GitHub](https://github.com/CoIR-team/coir) and [Leaderboard](https://archersama.github.io/coir/).
 
