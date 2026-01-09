@@ -45,7 +45,7 @@ try:
     # 2. Load Model (AutoModel loads the custom JinaForRanking class)
     model = AutoModel.from_pretrained(
         MODEL_PATH,
-        dtype=torch.bfloat16,
+        dtype="auto",
         trust_remote_code=True,
         attn_implementation="flash_attention_2",
         device_map="cuda"
