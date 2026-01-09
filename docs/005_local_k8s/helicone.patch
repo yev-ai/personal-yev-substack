@@ -1,0 +1,12 @@
+diff --git a/docker/dockerfiles/dockerfile_web b/docker/dockerfiles/dockerfile_web
+index d8c296d08..7dbf4a25d 100644
+--- a/docker/dockerfiles/dockerfile_web
++++ b/docker/dockerfiles/dockerfile_web
+@@ -9,6 +9,7 @@ COPY packages/filters/package.json ./packages/filters/
+ COPY packages/llm-mapper/package.json ./packages/llm-mapper/
+ COPY packages/prompts/package.json ./packages/prompts/
+ COPY packages/secrets/package.json ./packages/secrets/
++COPY packages/pricing/package.json ./packages/pricing/
+ COPY web/package.json ./web/
+ COPY valhalla/jawn/package.json ./valhalla/jawn/
+ COPY bifrost/package.json ./bifrost/

@@ -1,0 +1,16 @@
+{
+  "[shellscript]": {
+    "editor.defaultFormatter": "foxundermoon.shell-format",
+    "editor.formatOnSave": true
+  },
+  "[dotenv]": {
+    "editor.defaultFormatter": "foxundermoon.shell-format",
+    "editor.formatOnSave": true
+  },
+  "shellformat.path": "/usr/bin/shfmt",
+  "shellformat.flag": "-i 2 -bn -ci -sr",
+  "files.associations": {
+    "*.sh": "shellscript"
+  },
+  "roo-cline.codeIndex.embeddingBatchSize": 62,
+}

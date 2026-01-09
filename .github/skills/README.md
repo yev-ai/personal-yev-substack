@@ -1,0 +1,1 @@
+https://code.visualstudio.com/docs/copilot/customization/agent-skills
