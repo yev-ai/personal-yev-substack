@@ -49,7 +49,7 @@ services:
       - "0.88"
   embedding-model:
     image: embedding-inference:latest
-    profiles: ["embeddings", "inference-embedding"]
+    profiles: ["embeddings"]
     container_name: embedding-inference
     runtime: nvidia
     pid: host
@@ -74,13 +74,11 @@ services:
       - "${MAX_CLIENT_BATCH_SIZE:-64}"
       - --max-batch-tokens
       - "${MAX_BATCH_TOKENS:-32768}"
-  reranker-model:
-    image: embedding-inference:latest
-    profiles: ["embeddings", "inference-reranker"]
-    container_name: reranker-inference
+  embedding-manager:
+    image: embedding-manager:latest
+    profiles: ["embeddings"]
+    container_name: embedding-manager
     runtime: nvidia
-    pid: host
-    ipc: host
     deploy:
       resources:
         reservations:
@@ -88,28 +86,15 @@ services:
             - driver: nvidia
               count: all
               capabilities: [gpu]
+    ports:
+      - "1335:8000"
     volumes:
       - ${HF_HOME}:/data
     environment:
-      - HF_HUB_OFFLINE=1
-    command:
-      - --model-id
-      - /data/hub/models--jinaai--jina-reranker-v3/snapshots/050e171c4f75dfec5b648ed8470a2475e5a30f30
-      - --max-client-batch-size
-      - "${RERANK_BATCH_SIZE:-32}"
-      - --max-batch-tokens
-      - "${RERANK_MAX_TOKENS:-16384}"
-      - --auto-truncate
-  embedding-manager:
-    image: embedding-manager:latest
-    profiles: ["embeddings"]
-    container_name: embedding-manager
-    ports:
-      - "1335:8000"
-    environment:
       - TEI_BASE_URL=http://embedding-model:80
-      - TEI_RERANK_URL=http://reranker-model:80
+      - MODEL_PATH=/data/hub/models--jinaai--jina-reranker-v3/snapshots/050e171c4f75dfec5b648ed8470a2475e5a30f30
       - PORT=8000
+      - HF_HUB_OFFLINE=1
     depends_on:
       - embedding-model
   db-vector:
