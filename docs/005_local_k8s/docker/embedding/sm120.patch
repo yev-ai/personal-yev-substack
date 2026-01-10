@@ -6213,30 +6213,34 @@ index 58bffab..0000000
 - "thiserror 1.0.69",
 -]
 diff --git a/Cargo.toml b/Cargo.toml
-index 77a89b5..1347ade 100644
+index 77a89b5..9ac0dec 100644
 --- a/Cargo.toml
 +++ b/Cargo.toml
-@@ -42,25 +42,21 @@ serde_json = "1.0"
+@@ -42,25 +42,22 @@ serde_json = "1.0"
  thiserror = "1.0"
  rand = "0.9"
  serial_test = "2.0.0"
 -cudarc = { version = "0.13", features =["cuda-12020"], default-features = false }
-+cudarc = { version = "*", features = ["cuda-13010", "static-linking", "std", "driver", "nvrtc", "cublas", "curand"], default-features = false }
++cudarc = { version = "*", features = ["cuda-13010", "std", "driver", "nvrtc", "cublas", "curand"], default-features = false }
  intel-mkl-src = { version = "0.8", default-features = false }
 -candle = { version = "0.8", package = "candle-core" }
 -candle-nn = { version = "0.8" }
 -candle-transformers = { version = "0.8" }
 -candle-flash-attn = { version = "0.8" }
-+candle = { git = "https://github.com/huggingface/candle", rev = "a4ad7c79666958c38b9afc0e0c3e3499ab8991d8", package = "candle-core" }
-+candle-nn = { git = "https://github.com/huggingface/candle", rev = "a4ad7c79666958c38b9afc0e0c3e3499ab8991d8" }
-+candle-transformers = { git = "https://github.com/huggingface/candle", rev = "a4ad7c79666958c38b9afc0e0c3e3499ab8991d8" }
-+candle-flash-attn = { git = "https://github.com/huggingface/candle", rev = "a4ad7c79666958c38b9afc0e0c3e3499ab8991d8" }
- candle-cublaslt = { version = "0.0.1" }
- candle-layer-norm = { version = "0.0.1" }
+-candle-cublaslt = { version = "0.0.1" }
+-candle-layer-norm = { version = "0.0.1" }
 -candle-index-select-cu =  { version = "0.0.1", features = ["cuda-11"], default-features = false }
- candle-rotary = { version = "0.0.1" }
- candle-flash-attn-v1 = { version = "0.0.1" }
-+candle-index-select-cu = { version = "0.0.1", features = ["cuda-11"], default-features = false }
+-candle-rotary = { version = "0.0.1" }
+-candle-flash-attn-v1 = { version = "0.0.1" }
++candle = { git = "https://github.com/NotYevvie/candle-cu-13010", rev = "cf9096bcfd69dddd690b5e5378318a709a727383", package = "candle-core" }
++candle-nn = { git = "https://github.com/NotYevvie/candle-cu-13010", rev = "cf9096bcfd69dddd690b5e5378318a709a727383" }
++candle-transformers = { git = "https://github.com/NotYevvie/candle-cu-13010", rev = "cf9096bcfd69dddd690b5e5378318a709a727383" }
++candle-flash-attn = { git = "https://github.com/NotYevvie/candle-cu-13010", rev = "cf9096bcfd69dddd690b5e5378318a709a727383" }
++candle-cublaslt = { git = "https://github.com/NotYevvie/candle-ext-cu-13010", rev = "5e52cc295c57f89407257981730d19c77e8af5c7" }
++candle-layer-norm = { git = "https://github.com/NotYevvie/candle-ext-cu-13010", rev = "5e52cc295c57f89407257981730d19c77e8af5c7" }
++candle-rotary = { git = "https://github.com/NotYevvie/candle-ext-cu-13010", rev = "5e52cc295c57f89407257981730d19c77e8af5c7" }
++candle-flash-attn-v1 = { git = "https://github.com/NotYevvie/candle-ext-cu-13010", rev = "5e52cc295c57f89407257981730d19c77e8af5c7" }
++candle-index-select-cu = { git = "https://github.com/NotYevvie/candle-select-cu-13010", rev = "2e1c4b8af0ee05db07c2fa85d0f36254f0db3247", features = ["cuda-12"], default-features = false }
  half = { version = "2.3.1", features = ["num-traits"] }
  
  [patch.crates-io]
@@ -6246,6 +6250,7 @@ index 77a89b5..1347ade 100644
 -candle-transformers = { git = "https://github.com/huggingface/candle", rev = "6381023982251959a2c9bab7378b3013304e192b", package = "candle-transformers" }
 -candle-flash-attn = { git = "https://github.com/huggingface/candle", rev = "6381023982251959a2c9bab7378b3013304e192b", package = "candle-flash-attn" }
 +cudarc = { git = "https://github.com/chelsea0x3b/cudarc", rev = "86ef49582f67a9d8f704ee3a46a48c36031d65c3" }
++candle-core = { git = "https://github.com/NotYevvie/candle-cu-13010", rev = "cf9096bcfd69dddd690b5e5378318a709a727383" }
  
  [profile.release]
  debug = 0
@@ -6277,10 +6282,50 @@ index 1dbbf2c..c60d8d7 100644
  flash-attn-v1 = ["dep:candle-flash-attn-v1", "cuda"]
  flash-attn = ["dep:candle-flash-attn", "cuda"]
 diff --git a/backends/candle/src/compute_cap.rs b/backends/candle/src/compute_cap.rs
-index ac79fcf..56978f5 100644
+index ac79fcf..fe64952 100644
 --- a/backends/candle/src/compute_cap.rs
 +++ b/backends/candle/src/compute_cap.rs
-@@ -30,6 +30,7 @@ fn compute_cap_matching(runtime_compute_cap: usize, compile_compute_cap: usize)
+@@ -1,9 +1,4 @@
+ use anyhow::Context;
+-use candle::cuda_backend::cudarc::driver;
+-use candle::cuda_backend::cudarc::driver::sys::CUdevice_attribute::{
+-    CU_DEVICE_ATTRIBUTE_COMPUTE_CAPABILITY_MAJOR, CU_DEVICE_ATTRIBUTE_COMPUTE_CAPABILITY_MINOR,
+-};
+-use candle::cuda_backend::cudarc::driver::CudaDevice;
+ 
+ pub fn get_compile_compute_cap() -> Result<usize, anyhow::Error> {
+     env!("CUDA_COMPUTE_CAP")
+@@ -12,14 +7,22 @@ pub fn get_compile_compute_cap() -> Result<usize, anyhow::Error> {
+ }
+ 
+ pub fn get_runtime_compute_cap() -> Result<usize, anyhow::Error> {
++    use candle::cuda_backend::cudarc::driver;
++    use candle::cuda_backend::cudarc::driver::sys::CUdevice_attribute::{
++        CU_DEVICE_ATTRIBUTE_COMPUTE_CAPABILITY_MAJOR, 
++        CU_DEVICE_ATTRIBUTE_COMPUTE_CAPABILITY_MINOR,
++    };
+     driver::result::init().context("CUDA is not available")?;
+-    let device = CudaDevice::new(0).context("CUDA is not available")?;
+-    let major = device
+-        .attribute(CU_DEVICE_ATTRIBUTE_COMPUTE_CAPABILITY_MAJOR)
+-        .context("Could not retrieve device compute capability major")?;
+-    let minor = device
+-        .attribute(CU_DEVICE_ATTRIBUTE_COMPUTE_CAPABILITY_MINOR)
+-        .context("Could not retrieve device compute capability minor")?;
++    let device = driver::result::device::get(0)
++        .context("Could not get CUDA device")?;
++    
++    let major = unsafe {
++        driver::result::device::get_attribute(device, CU_DEVICE_ATTRIBUTE_COMPUTE_CAPABILITY_MAJOR)
++    }.context("Could not retrieve device compute capability major")? as usize;
++    
++    let minor = unsafe {
++        driver::result::device::get_attribute(device, CU_DEVICE_ATTRIBUTE_COMPUTE_CAPABILITY_MINOR)
++    }.context("Could not retrieve device compute capability minor")? as usize;
+     Ok((major * 10 + minor) as usize)
+ }
+ 
+@@ -30,6 +33,7 @@ fn compute_cap_matching(runtime_compute_cap: usize, compile_compute_cap: usize)
          (86..=89, 80..=86) => true,
          (89, 89) => true,
          (90, 90) => true,
@@ -6288,7 +6333,7 @@ index ac79fcf..56978f5 100644
          (_, _) => false,
      }
  }
-@@ -54,6 +55,7 @@ mod tests {
+@@ -54,6 +58,7 @@ mod tests {
          assert!(compute_cap_matching(86, 86));
          assert!(compute_cap_matching(89, 89));
          assert!(compute_cap_matching(90, 90));
@@ -6331,3 +6376,12 @@ index 381d611..6dcc665 100644
 +static-linking = ["intel-mkl-src?/mkl-static-lp64-iomp"]
 +dynamic-linking = ["intel-mkl-src?/mkl-dynamic-lp64-iomp"]
  google = []
+diff --git a/rust-toolchain.toml b/rust-toolchain.toml
+index 2a91a5a..4009183 100644
+--- a/rust-toolchain.toml
++++ b/rust-toolchain.toml
+@@ -1,3 +1,3 @@
+ [toolchain]
+-channel = "1.85.1"
++channel = "nightly-2026-01-10"
+ components = ["rustfmt", "clippy"]
