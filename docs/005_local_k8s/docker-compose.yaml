@@ -54,6 +54,9 @@ services:
     runtime: nvidia
     pid: host
     ipc: host
+    ulimits:
+      memlock: -1
+      stack: 67108864
     deploy:
       resources:
         reservations:
@@ -79,6 +82,11 @@ services:
     profiles: ["embeddings"]
     container_name: embedding-manager
     runtime: nvidia
+    pid: host
+    ipc: host
+    ulimits:
+      memlock: -1
+      stack: 67108864
     deploy:
       resources:
         reservations:
@@ -97,13 +105,14 @@ services:
       - HF_HUB_OFFLINE=1
     depends_on:
       - embedding-model
+      - db-vector
   db-vector:
     image: qdrant/qdrant:latest
     profiles: ["embeddings"]
-    container_name: db-qdrant
-    ports:
-      - "6333:6333"
-      - "6334:6334"
+    container_name: db-vector
+    # ports:
+    #   - "6333:6333"
+    #   - "6334:6334"
     volumes:
       - ${HOME}/.qdrant_data:/qdrant/storage
       

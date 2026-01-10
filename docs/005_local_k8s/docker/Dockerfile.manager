@@ -1,8 +1,29 @@
-FROM nvcr.io/nvidia/pytorch:25.12-py3
+FROM nvcr.io/nvidia/pytorch:25.12-py3 AS base
 
 RUN pip install --no-cache-dir fastapi uvicorn httpx pydantic
 RUN pip install --no-cache-dir transformers accelerate
 
+FROM base AS builder
+
+WORKDIR /build
+
+RUN apt-get update && apt-get install -y \
+    git \
+    cmake \
+    build-essential \
+    && rm -rf /var/lib/apt/lists/*
+RUN git clone https://github.com/bitsandbytes-foundation/bitsandbytes.git && \
+    cd bitsandbytes && \
+    cmake -DCOMPUTE_BACKEND=cuda -DCOMPUTE_CAPABILITY="120" -S . && \
+    make && \
+    python setup.py bdist_wheel
+
+FROM base AS final
+
+WORKDIR /app
+
+COPY --from=builder /build/bitsandbytes/dist/*.whl /tmp/
+RUN pip install /tmp/*.whl && rm /tmp/*.whl
 COPY docker/manager.py /app/manager.py
 
 CMD ["python", "-u", "/app/manager.py"]
