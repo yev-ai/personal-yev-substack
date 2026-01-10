@@ -8,7 +8,8 @@ import time
 from fastapi import FastAPI, HTTPException, Request, Response
 from contextlib import asynccontextmanager
 from fastapi.concurrency import run_in_threadpool
-from transformers import AutoModel, AutoTokenizer, BitsAndBytesConfig
+from transformers import AutoModel, AutoTokenizer
+from torchao.quantization import quantize_, int4_weight_only
 
 # --- LOGGING SETUP ---
 logging.basicConfig(
@@ -45,25 +46,25 @@ tokenizer = None
 async def lifespan(app: FastAPI):
     global http_client, model, tokenizer
     
-    # 1. Load Reranker
-    logger.info(f"🚀 Loading Reranker ({MODEL_PATH}) in 4-bit...")
+    # 1. Load Reranker (Native BF16 + TorchAO Quantization)
+    logger.info(f"🚀 Loading Reranker ({MODEL_PATH}) with TorchAO...")
     try:
-        bnb_config = BitsAndBytesConfig(
-            load_in_4bit=True,
-            bnb_4bit_compute_dtype=torch.bfloat16,
-            bnb_4bit_quant_type="nf4",
-            bnb_4bit_use_double_quant=True
-        )
         tokenizer = AutoTokenizer.from_pretrained(MODEL_PATH, trust_remote_code=True)
+        
+        # A. Load in full BF16 first (Blackwell Native)
         model = AutoModel.from_pretrained(
             MODEL_PATH,
-            quantization_config=bnb_config,
             trust_remote_code=True,
             attn_implementation="flash_attention_2",
+            torch_dtype=torch.bfloat16, 
             device_map="cuda"
         )
+
+        logger.info("🔨 Applying TorchAO Int4 Quantization...")
+        quantize_(model, int4_weight_only())
+        
         model.eval()
-        logger.info("✅ Reranker Loaded")
+        logger.info("✅ Reranker Loaded & Quantized")
     except Exception as e:
         logger.error(f"❌ Failed to load reranker: {e}")
 

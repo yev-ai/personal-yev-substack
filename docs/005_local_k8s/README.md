@@ -3,7 +3,8 @@ In this directory:
 
 ```bash
 
-docker build -f docker/Dockerfile.manager -t embedding-manager .
+docker build --progress=plain -f docker/Dockerfile.manager -t embedding-manager .
+docker build --progress=plain -f docker/Dockerfile.embedding -t embedding-inference .
 
 
 git clone https://github.com/Helicone/helicone.git

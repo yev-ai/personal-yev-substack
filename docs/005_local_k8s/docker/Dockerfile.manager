@@ -1,29 +1,52 @@
-FROM nvcr.io/nvidia/pytorch:25.12-py3 AS base
+FROM nvcr.io/nvidia/pytorch:25.12-py3 AS builder
 
-RUN pip install --no-cache-dir fastapi uvicorn httpx pydantic
-RUN pip install --no-cache-dir transformers accelerate
-
-FROM base AS builder
-
+# This assumes at least equivalent hardware to what's in the Substack guide: https://www.yevelations.com/p/dev-from-scratch-1n
 WORKDIR /build
 
 RUN apt-get update && apt-get install -y \
-    git \
-    cmake \
-    build-essential \
+    git cmake build-essential ninja-build \
     && rm -rf /var/lib/apt/lists/*
-RUN git clone https://github.com/bitsandbytes-foundation/bitsandbytes.git && \
-    cd bitsandbytes && \
-    cmake -DCOMPUTE_BACKEND=cuda -DCOMPUTE_CAPABILITY="120" -S . && \
-    make && \
-    python setup.py bdist_wheel
 
-FROM base AS final
+ENV TORCH_CUDA_ARCH_LIST="12.0"
+ENV CUDA_ARCH_LIST="12.0"
+ENV CUDA_HOME="/usr/local/cuda"
+
+RUN pip install --no-cache-dir \
+    setuptools-git-versioning \
+    scikit-build \
+    jinja2 \
+    ninja
+
+RUN git clone --recursive https://github.com/pytorch/FBGEMM.git
+
+ENV MAX_JOBS="28"
+ENV NVCC_THREADS="28"
+
+RUN cd FBGEMM/fbgemm_gpu && \
+    sed -i 's/default="none"/default="genai"/g' setup.py && \
+    sed -i "s/default='none'/default='genai'/g" setup.py && \
+    python setup.py bdist_wheel \
+      --nvml_lib_path=/usr/local/cuda/lib64/stubs/libnvidia-ml.so && \
+    cp dist/*.whl /build/
+
+RUN git clone https://github.com/pytorch/ao.git /build/ao
+
+WORKDIR /build/ao
+RUN export MAX_JOBS=28 && \
+    export USE_NINJA=1 && \
+    python setup.py bdist_wheel --dist-dir=/build/
+
+FROM nvcr.io/nvidia/pytorch:25.12-py3
 
 WORKDIR /app
 
-COPY --from=builder /build/bitsandbytes/dist/*.whl /tmp/
+COPY --from=builder /build/*.whl /tmp/
 RUN pip install /tmp/*.whl && rm /tmp/*.whl
+
+RUN pip install --no-cache-dir \
+    fastapi uvicorn httpx pydantic \
+    transformers accelerate
+
 COPY docker/manager.py /app/manager.py
 
 CMD ["python", "-u", "/app/manager.py"]

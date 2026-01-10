@@ -6,6 +6,8 @@ services:
     runtime: nvidia
     pid: host
     ipc: host
+    #OPT
+    shm_size: '16gb'
     deploy:
       resources:
         reservations:
@@ -47,6 +49,9 @@ services:
       - qwen3_coder
       - --gpu-memory-utilization
       - "0.88"
+      #OPT
+      - --swap-space
+      - "16"
   embedding-model:
     image: embedding-inference:latest
     profiles: ["embeddings"]
@@ -79,6 +84,9 @@ services:
       - "${MAX_BATCH_TOKENS:-32768}"
   embedding-manager:
     image: embedding-manager:latest
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.manager
     profiles: ["embeddings"]
     container_name: embedding-manager
     runtime: nvidia
