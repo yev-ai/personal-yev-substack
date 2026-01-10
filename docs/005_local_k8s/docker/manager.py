@@ -9,9 +9,8 @@ from fastapi import FastAPI, HTTPException, Request, Response
 from contextlib import asynccontextmanager
 from fastapi.concurrency import run_in_threadpool
 from transformers import AutoModel, AutoTokenizer
-from torchao.quantization import quantize_, int4_weight_only
+from torchao.quantization import quantize_, Int4WeightOnlyConfig
 
-# --- LOGGING SETUP ---
 logging.basicConfig(
     level=logging.INFO, 
     format="%(asctime)s [%(levelname)s] %(message)s",
@@ -19,7 +18,6 @@ logging.basicConfig(
 )
 logger = logging.getLogger("SmartProxy")
 
-# --- CONFIGURATION ---
 def require_env(name: str, default: str = None) -> str:
     value = os.environ.get(name, default)
     if not value:
@@ -41,17 +39,14 @@ http_client = None
 model = None
 tokenizer = None
 
-# --- LIFECYCLE ---
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     global http_client, model, tokenizer
     
-    # 1. Load Reranker (Native BF16 + TorchAO Quantization)
     logger.info(f"🚀 Loading Reranker ({MODEL_PATH}) with TorchAO...")
     try:
         tokenizer = AutoTokenizer.from_pretrained(MODEL_PATH, trust_remote_code=True)
         
-        # A. Load in full BF16 first (Blackwell Native)
         model = AutoModel.from_pretrained(
             MODEL_PATH,
             trust_remote_code=True,
@@ -61,14 +56,13 @@ async def lifespan(app: FastAPI):
         )
 
         logger.info("🔨 Applying TorchAO Int4 Quantization...")
-        quantize_(model, int4_weight_only())
+        quantize_(model, Int4WeightOnlyConfig(group_size=128))
         
         model.eval()
         logger.info("✅ Reranker Loaded & Quantized")
     except Exception as e:
         logger.error(f"❌ Failed to load reranker: {e}")
 
-    # 2. Setup HTTP Client
     http_client = httpx.AsyncClient(
         timeout=120.0, 
         limits=httpx.Limits(max_keepalive_connections=20, max_connections=100)
@@ -78,15 +72,11 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(lifespan=lifespan)
 
-# --- HELPER ---
 def run_rerank_sync(query, candidates):
     return model.rerank(query, candidates)
 
-# --- ROUTES ---
-
 @app.get("/v1/models")
 async def list_models():
-    # logger.info("🔍 Handshake: Roo requested /v1/models")
     return {
         "object": "list",
         "data": [
@@ -108,7 +98,6 @@ async def create_embeddings(request: Request):
     global LATEST_QUERY_TEXT
     texts = [raw_input] if isinstance(raw_input, str) else raw_input
     
-    # Save query logic
     if len(texts) == 1 and len(texts[0]) < 2000:
         LATEST_QUERY_TEXT = texts[0]
 
@@ -197,7 +186,7 @@ async def proxy_qdrant_search(collection_name: str, request: Request):
 
     data["result"] = results[:original_limit]
     return data
-# --- ROBUST CATCH-ALL PROXY ---
+
 @app.api_route("/{path_name:path}", methods=["GET", "POST", "PUT", "DELETE", "PATCH", "HEAD"])
 async def catch_all_proxy(request: Request, path_name: str):
     req_id = str(int(time.time() * 1000))[-6:]
@@ -205,12 +194,10 @@ async def catch_all_proxy(request: Request, path_name: str):
     
     logger.info(f"[{req_id}] 📥 {request.method} /{path_name}")
 
-    # Headers Cleanup - exclude accept-encoding to prevent gzip issues
     excluded = {"host", "content-length", "transfer-encoding", "connection", "keep-alive", "accept-encoding"}
     clean_headers = {k: v for k, v in request.headers.items() if k.lower() not in excluded}
-    clean_headers["Accept-Encoding"] = "identity"  # Force no compression from Qdrant
+    clean_headers["Accept-Encoding"] = "identity"
 
-    # Input Handling
     content = None
     if request.method in ["POST", "PUT", "PATCH"]:
         async def body_stream():
@@ -229,7 +216,6 @@ async def catch_all_proxy(request: Request, path_name: str):
         
         logger.info(f"[{req_id}] ⬅️ Status: {resp.status_code}")
 
-        # Workaround: Treat 409 on collection PUT as success (idempotent create)
         if resp.status_code == 409 and request.method == "PUT" and path_name.startswith("collections/"):
             logger.info(f"[{req_id}] ⚠️ Converting 409 Conflict to 200 OK (collection already exists)")
             return Response(
@@ -238,7 +224,6 @@ async def catch_all_proxy(request: Request, path_name: str):
                 headers={"Content-Type": "application/json", "Connection": "close"}
             )
 
-        # Prepare Response Headers - also exclude content-encoding to prevent decompression errors
         resp_headers = {k: v for k, v in resp.headers.items() 
                         if k.lower() not in {"content-length", "transfer-encoding", "connection", "content-encoding"}}
         

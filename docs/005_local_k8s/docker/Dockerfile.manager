@@ -7,20 +7,25 @@ RUN apt-get update && apt-get install -y \
     git cmake build-essential ninja-build \
     && rm -rf /var/lib/apt/lists/*
 
-ENV TORCH_CUDA_ARCH_LIST="12.0"
-ENV CUDA_ARCH_LIST="12.0"
-ENV CUDA_HOME="/usr/local/cuda"
-
 RUN pip install --no-cache-dir \
     setuptools-git-versioning \
     scikit-build \
     jinja2 \
     ninja
 
-RUN git clone --recursive https://github.com/pytorch/FBGEMM.git
+ARG FBGEMM_COMMIT="de7ef191ee19423a93c453c39915dd6176f56919"
+ARG TORCH_CUDA_ARCH_LIST="12.0"
+ARG CUDA_ARCH_LIST="12.0"
+ENV CUDA_HOME="/usr/local/cuda"
 
-ENV MAX_JOBS="28"
-ENV NVCC_THREADS="28"
+RUN git clone --recursive https://github.com/pytorch/FBGEMM.git && \
+    cd FBGEMM && \
+    git checkout ${FBGEMM_COMMIT} && \
+    git submodule sync && \
+    git submodule update --init --recursive
+
+ARG MAX_JOBS="28"
+ARG NVCC_THREADS="28"
 
 RUN cd FBGEMM/fbgemm_gpu && \
     sed -i 's/default="none"/default="genai"/g' setup.py && \
@@ -28,13 +33,6 @@ RUN cd FBGEMM/fbgemm_gpu && \
     python setup.py bdist_wheel \
       --nvml_lib_path=/usr/local/cuda/lib64/stubs/libnvidia-ml.so && \
     cp dist/*.whl /build/
-
-RUN git clone https://github.com/pytorch/ao.git /build/ao
-
-WORKDIR /build/ao
-RUN export MAX_JOBS=28 && \
-    export USE_NINJA=1 && \
-    python setup.py bdist_wheel --dist-dir=/build/
 
 FROM nvcr.io/nvidia/pytorch:25.12-py3
 
@@ -49,4 +47,4 @@ RUN pip install --no-cache-dir \
 
 COPY docker/manager.py /app/manager.py
 
-CMD ["python", "-u", "/app/manager.py"]
+CMD ["uvicorn", "manager:app", "--host", "0.0.0.0", "--port", "8000"]
