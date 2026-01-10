@@ -1,9 +1,17 @@
 FROM nvidia/cuda:12.9.0-devel-ubuntu22.04 AS base-builder
 
+ENV CARGO_PROFILE_RELEASE_LTO="fat" \
+    CARGO_PROFILE_RELEASE_CODEGEN_UNITS="1"
+
+ENV RUSTFLAGS="-C target-cpu=native"
+
 ENV SCCACHE=0.10.0
 ENV RUSTC_WRAPPER=/usr/local/bin/sccache
 ENV PATH="/root/.cargo/bin:${PATH}"
 ENV CARGO_CHEF=0.1.71
+# ENV TORCH_CUDA_ARCH_LIST="12.0"
+# ENV CUDA_ARCH_LIST="12.0"
+ENV CUDA_HOME="/usr/local/cuda"
 
 ARG TEI_COMMIT=0ec2ba5073de67c016cf77b8942ddb15ed3b0397
 
@@ -66,48 +74,19 @@ FROM base-builder AS planner
 
 WORKDIR /usr/src
 
-RUN cargo chef prepare  --recipe-path recipe.json
+RUN cargo chef prepare --recipe-path recipe.json
 
 FROM base-builder AS builder
 
 ARG CUDA_COMPUTE_CAP=120
-ARG GIT_SHA
-ARG DOCKER_LABEL
-ARG ACTIONS_RESULTS_URL=""
-ARG ACTIONS_RUNTIME_TOKEN=""
-
-ARG RAYON_NUM_THREADS
-ARG CARGO_BUILD_JOBS
-ARG CARGO_BUILD_INCREMENTAL
-
-ARG SCCACHE_GHA_ENABLED
 
 WORKDIR /usr/src
 
-RUN if [ ${CUDA_COMPUTE_CAP} -ge 75 -a ${CUDA_COMPUTE_CAP} -lt 80 ]; \
-    then  \
-        nvprune --generate-code code=sm_${CUDA_COMPUTE_CAP} /usr/local/cuda/lib64/libcublas_static.a -o /usr/local/cuda/lib64/libcublas_static.a; \
-    elif [ ${CUDA_COMPUTE_CAP} -ge 80 -a ${CUDA_COMPUTE_CAP} -lt 90 ]; \
-    then  \
-        nvprune --generate-code code=sm_80 --generate-code code=sm_${CUDA_COMPUTE_CAP} /usr/local/cuda/lib64/libcublas_static.a -o /usr/local/cuda/lib64/libcublas_static.a; \
-    elif [ ${CUDA_COMPUTE_CAP} -eq 90 ]; \
-    then  \
-        nvprune --generate-code code=sm_90 /usr/local/cuda/lib64/libcublas_static.a -o /usr/local/cuda/lib64/libcublas_static.a; \
-    elif [ ${CUDA_COMPUTE_CAP} -eq 120 ]; \
-    then  \
-        nvprune --generate-code code=sm_120 /usr/local/cuda/lib64/libcublas_static.a -o /usr/local/cuda/lib64/libcublas_static.a; \
-    else  \
-        echo "cuda compute cap ${CUDA_COMPUTE_CAP} is not supported"; exit 1; \
-    fi;
+RUN nvprune --generate-code code=sm_120 /usr/local/cuda/lib64/libcublas_static.a -o /usr/local/cuda/lib64/libcublas_static.a
 
 COPY --from=planner /usr/src/recipe.json recipe.json
 
-RUN if [ ${CUDA_COMPUTE_CAP} -ge 75 -a ${CUDA_COMPUTE_CAP} -lt 80 ]; \
-    then \
-        cargo chef cook --release --features candle-cuda-turing --features static-linking --no-default-features --recipe-path recipe.json && sccache -s; \
-    else \
-        cargo chef cook --release --features candle-cuda --features static-linking --no-default-features --recipe-path recipe.json && sccache -s; \
-    fi;
+RUN cargo chef cook --release --features candle-cuda --features flash-attn --features static-linking --no-default-features --recipe-path recipe.json && sccache -s
 
 COPY --from=base-builder /usr/src/backends backends
 COPY --from=base-builder /usr/src/core core
@@ -117,38 +96,13 @@ COPY --from=base-builder /usr/src/Cargo.lock ./
 
 FROM builder AS http-builder
 
-RUN if [ ${CUDA_COMPUTE_CAP} -ge 75 -a ${CUDA_COMPUTE_CAP} -lt 80 ]; \
-    then \
-        cargo build --release --bin text-embeddings-router -F candle-cuda-turing -F static-linking -F http --no-default-features && sccache -s; \
-    else \
-        cargo build --release --bin text-embeddings-router -F candle-cuda -F static-linking -F http --no-default-features && sccache -s; \
-    fi;
-
-FROM builder AS grpc-builder
-
-RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
-    unzip \
-    && rm -rf /var/lib/apt/lists/*
-
-RUN PROTOC_ZIP=protoc-21.12-linux-x86_64.zip && \
-    curl -OL https://github.com/protocolbuffers/protobuf/releases/download/v21.12/$PROTOC_ZIP && \
-    unzip -o $PROTOC_ZIP -d /usr/local bin/protoc && \
-    unzip -o $PROTOC_ZIP -d /usr/local 'include/*' && \
-    rm -f $PROTOC_ZIP
-
-RUN if [ ${CUDA_COMPUTE_CAP} -ge 75 -a ${CUDA_COMPUTE_CAP} -lt 80 ]; \
-    then \
-        cargo build --release --bin text-embeddings-router -F candle-cuda-turing -F static-linking -F grpc --no-default-features && sccache -s; \
-    else \
-        cargo build --release --bin text-embeddings-router -F candle-cuda -F static-linking -F grpc --no-default-features && sccache -s; \
-    fi;
+RUN cargo build --release --bin text-embeddings-router -F candle-cuda -F flash-attn -F static-linking -F http --no-default-features && sccache -s
 
 FROM nvidia/cuda:12.9.0-base-ubuntu22.04 AS base
 
 ARG DEFAULT_USE_FLASH_ATTENTION=True
 
 ENV HUGGINGFACE_HUB_CACHE=/data \
-    PORT=80 \
     USE_FLASH_ATTENTION=$DEFAULT_USE_FLASH_ATTENTION
 
 RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
@@ -157,16 +111,9 @@ RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-ins
     curl \
     && rm -rf /var/lib/apt/lists/*
 
-FROM base AS grpc
-
-COPY --from=grpc-builder /usr/src/target/release/text-embeddings-router /usr/local/bin/text-embeddings-router
-
-ENTRYPOINT ["text-embeddings-router"]
-CMD ["--json-output"]
-
-FROM base
-
 COPY --from=http-builder /usr/src/target/release/text-embeddings-router /usr/local/bin/text-embeddings-router
+
+ENV PORT=8000
 
 ENTRYPOINT ["text-embeddings-router"]
 CMD ["--json-output"]
