@@ -1,0 +1,1 @@
+DOCKER_BUILDKIT=1 docker build --progress=plain -t yevai/local-inference-qwen3:sm120-cu131-v2 .

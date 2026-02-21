@@ -1,1 +1,1 @@
-DOCKER_BUILDKIT=1 docker build --progress=plain -t embedding-inference .
+DOCKER_BUILDKIT=1 docker build --progress=plain -t yevai/codebase-index-embed:sm120-cu131-v2 .
