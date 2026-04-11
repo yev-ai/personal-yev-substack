@@ -48,7 +48,3 @@ RUN pip install --no-cache-dir \
 COPY manager.py /app/manager.py
 
 CMD ["uvicorn", "manager:app", "--host", "0.0.0.0", "--port", "8000"]
-
-
-docker run --rm --entrypoint cat yevai/local-inference-qwen3:sm120-cu131-v1 app/manager.py > ./file-v1.py
-docker run --rm --entrypoint cat yevai/local-inference-qwen3:sm120-cu131-v2 app/manager.py > ./file-v2.py
