@@ -1,0 +1,56 @@
+{
+  "name": "dx",
+  "displayName": "Local Developer Experience",
+  "description": "Opinionated DX QOL improvements",
+  "version": "0.0.1",
+  "private": true,
+  "publisher": "yreztsov",
+  "engines": {
+    "vscode": "^1.115.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [],
+  "main": "./dist/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "dx.helloWorld",
+        "title": "dx hello"
+      }
+    ]
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run package:fast",
+    "compile": "npm run check-types && npm run lint && tsx esbuild.ts",
+    "watch": "npm-run-all -p watch:*",
+    "watch:esbuild": "tsx esbuild.ts --watch",
+    "watch:tsc": "tsc --noEmit --watch --project tsconfig.json",
+    "package": "npm run check-types && npm run lint && tsx esbuild.ts --production",
+    "package:fast": "tsx esbuild.ts --production",
+    "compile-tests": "tsc -p . --outDir out",
+    "watch-tests": "tsc -p . -w --outDir out",
+    "pretest": "npm run compile-tests",
+    "check-types": "tsc --noEmit",
+    "lint": "eslint src",
+    "test": "vscode-test",
+    "vsix": "vsce package --no-dependencies --allow-missing-repository --skip-license",
+    "install": "npm run package:fast && npm run compile-tests && npm test && npm run vsix && (code --uninstall-extension yreztsov.dx || true) && code --install-extension *.vsix"
+  },
+  "devDependencies": {
+    "@types/mocha": "^10.0.10",
+    "@types/node": "22.x",
+    "@types/vscode": "^1.115.0",
+    "@vscode/test-cli": "^0.0.12",
+    "@vscode/test-electron": "^2.5.2",
+    "@vscode/vsce": "^3.7.1",
+    "esbuild": "0.28.0",
+    "eslint": "9.39.3",
+    "jiti": "^2.6.1",
+    "npm-run-all2": "8.0.4",
+    "tsx": "^4.21.0",
+    "typescript": "^5.9.3",
+    "typescript-eslint": "8.58.1"
+  }
+}
